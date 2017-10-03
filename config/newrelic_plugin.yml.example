@@ -1,0 +1,37 @@
+newrelic:
+  #
+  # Update with your New Relic account license key:
+  #
+  license_key: 'YOUR_LICENSE_KEY_HERE'
+  #
+  # Set to '1' for verbose output, remove for normal output.
+  # All output goes to stdout/stderr.
+  #
+  verbose: 1
+  #
+  # Update with your proxy information (optional) for
+  # communicating with new relic servers if you are behind
+  # a firewall.
+  #
+  #proxy:
+  #  address: ''
+  #  port:
+  #  user:
+  #  password:
+
+agents:
+  dbs:
+    name: 'PostgresqlReplicationPlug-in'
+    servers:
+      - name: 'master'
+        type: 'master'
+        host: ''
+        port: ''
+        user: ''
+        password: ''
+      - name: 'slave-1'
+        type: 'slave'
+        host: ''
+        port: ''
+        user: ''
+        password: ''

@@ -1,0 +1,78 @@
+#!/usr/bin/env ruby
+
+require 'rubygems'
+require 'bundler/setup'
+require 'newrelic_plugin'
+require 'pg'
+require 'sequel'
+
+module NewRelicPostgresqlReplication
+  VERSION = '1.0.1'
+
+  class Agent < NewRelic::Plugin::Agent::Base
+
+    agent_guid 'com.hungerstation.newrelic-postgresql-replication-agent'
+    agent_config_options :name, :servers
+    agent_version NewRelicPostgresqlReplication::VERSION
+    agent_human_labels('PostgresqlReplication') { name }
+
+    attr_reader :ident
+
+    def setup_metrics; end
+
+    def poll_cycle
+      dbs = {}
+      servers.each do |server|
+        report_metric "Server/Type/#{server['name']}", 'Type', server['type']
+        dbs[server['name']] = Postgres.new(host: server['host'], port: server['port'], user: server['user'], pass: server['password'], type: server['type'], server_name: server['name'])
+      end
+      dbs.each do |name, postgres|
+        postgres.delay_in_byte.each do |data|
+          report_metric "Delay/#{postgres.type}/#{name}", 'Bytes', data[:delay_in_byte].to_i
+        end
+      end
+    end
+  end
+
+  class Postgres
+    attr_reader :type
+
+    def initialize(host:, port:, user:, pass:, type: 'slave', server_name:)
+      raise 'Invalid DB server type' unless %w(slave master).include?(type)
+      @db = Sequel.connect("postgres://#{user}:#{pass}@#{host}:#{port}/postgres")
+      @type = type
+      @name = server_name
+    end
+
+    def delay_in_byte
+      @db[delay_in_byte_query].to_a
+    end
+
+    private
+
+    def delay_in_byte_query
+      if @type == 'slave'
+        "select '#{@name}' as app_name,
+           pg_last_xlog_receive_location()-pg_last_xlog_replay_location()
+           as delay_in_byte;"
+      else
+        'select application_name as app_name, case
+          when replay_location IS NOT NULL then sent_location-replay_location
+            else sent_location-write_location
+            end as delay_in_byte from pg_stat_replication;'
+      end
+    end
+
+    def delay_in_second_query
+      if @type == 'slave'
+        'select EXTRACT(EPOCH FROM(now()-pg_last_xact_replay_timestamp()))::FLOAT'
+      else
+        ''
+      end
+    end
+  end
+
+  NewRelic::Plugin::Config.config_file = File.dirname(__FILE__) + '/config/newrelic_plugin.yml'
+  NewRelic::Plugin::Setup.install_agent :dbs, self
+  NewRelic::Plugin::Run.setup_and_run
+end
