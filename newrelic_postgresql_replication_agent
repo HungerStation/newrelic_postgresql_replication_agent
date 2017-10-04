@@ -26,9 +26,9 @@ module NewRelicPostgresqlReplication
         report_metric "Server/Type/#{server['name']}", 'Type', server['type']
         dbs[server['name']] = Postgres.new(host: server['host'], port: server['port'], user: server['user'], pass: server['password'], type: server['type'], server_name: server['name'])
       end
-      dbs.each do |name, postgres|
+      dbs.each do |_, postgres|
         postgres.delay_in_byte.each do |data|
-          report_metric "Delay/#{postgres.type}/#{name}", 'Bytes', data[:delay_in_byte].to_i
+          report_metric "Delay/#{postgres.type}/#{data[:app_name]}", 'Bytes', data[:delay_in_byte].to_i
         end
       end
 
