@@ -31,6 +31,10 @@ module NewRelicPostgresqlReplication
           report_metric "Delay/#{postgres.type}/#{name}", 'Bytes', data[:delay_in_byte].to_i
         end
       end
+
+      dbs.each do |_, postgres|
+        postgres.close_connection
+      end
     end
   end
 
@@ -46,6 +50,10 @@ module NewRelicPostgresqlReplication
 
     def delay_in_byte
       @db[delay_in_byte_query].to_a
+    end
+
+    def close_connection
+      @db.disconnect
     end
 
     private
